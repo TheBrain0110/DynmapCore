@@ -26,6 +26,17 @@ public class TexturePackHDShader implements HDShader {
     private final boolean bettergrass;
     private final int gridscale;
     private final DynmapCore core;
+	
+    private int[] hiddenids;
+
+    private void setHidden(int id) {
+        if((id >= 0) && (id < 65535)) {
+            hiddenids[id >> 5] |= (1 << (id & 0x1F));
+        }
+    }
+    private boolean isHidden(int id) {
+        return (hiddenids[id >> 5] & (1 << (id & 0x1F))) != 0;
+    }
     
     public TexturePackHDShader(DynmapCore core, ConfigurationNode configuration) {
         tpname = configuration.getString("texturepack", "minecraft");
@@ -34,6 +45,18 @@ public class TexturePackHDShader implements HDShader {
         biome_shaded = configuration.getBoolean("biomeshaded", true);
         bettergrass = configuration.getBoolean("better-grass", MapManager.mapman.getBetterGrass());
         gridscale = configuration.getInteger("grid-scale", 0);
+        
+		hiddenids = new int[2048];
+        setHidden(0); /* Air is hidden always */
+        List<Object> hidden = configuration.getList("hiddenids");
+        if(hidden != null) {
+            for(Object o : hidden) {
+                if(o instanceof Integer) {
+                    int v = ((Integer)o);
+                    setHidden(v);
+                }
+            }
+        }
     }
     
     private final TexturePack getTexturePack() {
@@ -162,7 +185,8 @@ public class TexturePackHDShader implements HDShader {
             int blocktype = ps.getBlockTypeID();
             int lastblocktype = lastblkid;
             lastblkid = blocktype;
-            
+            if (isHidden(blocktype))
+                blocktype = 0;
             if(blocktype == 0) {
                 return false;
             }
