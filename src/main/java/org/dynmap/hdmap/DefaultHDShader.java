@@ -3,6 +3,7 @@ package org.dynmap.hdmap;
 import static org.dynmap.JSONUtils.s;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.dynmap.Color;
 import org.dynmap.ColorScheme;
@@ -27,7 +28,18 @@ public class DefaultHDShader implements HDShader {
         NONE, BIOME, TEMPERATURE, RAINFALL
     }
     protected BiomeColorOption biomecolored = BiomeColorOption.NONE; /* Use biome for coloring */
-    
+
+    private int[] hiddenids;
+
+    private void setHidden(int id) {
+        if((id >= 0) && (id < 65535)) {
+            hiddenids[id >> 5] |= (1 << (id & 0x1F));
+        }
+    }
+    private boolean isHidden(int id) {
+        return (hiddenids[id >> 5] & (1 << (id & 0x1F))) != 0;
+    }
+
     public DefaultHDShader(DynmapCore core, ConfigurationNode configuration) {
         name = (String) configuration.get("name");
         colorScheme = ColorScheme.getScheme(core, configuration.getString("colorscheme", "default"));
@@ -44,6 +56,17 @@ public class DefaultHDShader implements HDShader {
         }
         else {
             biomecolored = BiomeColorOption.NONE;
+        }
+        hiddenids = new int[2048];
+        setHidden(0); /* Air is hidden always */
+        List<Object> hidden = configuration.getList("hiddenids");
+        if(hidden != null) {
+            for(Object o : hidden) {
+                if(o instanceof Integer) {
+                    int v = ((Integer)o);
+                    setHidden(v);
+                }
+            }
         }
     }
     
@@ -152,6 +175,8 @@ public class DefaultHDShader implements HDShader {
         public boolean processBlock(HDPerspectiveState ps) {
             int i;
             int blocktype = ps.getBlockTypeID();
+            if (isHidden(blocktype))
+                blocktype = 0;
             if(blocktype == 0)
                 return false;
             Color[] colors = getBlockColors(blocktype, ps.getBlockData());
